@@ -1,0 +1,152 @@
+//Prisma schema for the meat store web app.
+// SQLite is used for easy local setup; swap provider to "postgresql" for production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// role: "CUSTOMER" | "ADMIN"
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  phone         String?
+  role          String         @default("CUSTOMER")
+  createdAt     DateTime       @default(now())
+  addresses     Address[]
+  orders        Order[]
+  reviews       Review[]
+  subscriptions Subscription[]
+}
+
+model Address {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String         @default("Home")
+  line1         String
+  line2         String?
+  city          String
+  state         String
+  pincode       String
+  phone         String
+  isDefault     Boolean        @default(false)
+  orders        Order[]
+  subscriptions Subscription[]
+  createdAt     DateTime       @default(now())
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  imageUrl  String?
+  products  Product[]
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id            String           @id @default(cuid())
+  name          String
+  slug          String           @unique
+  description   String
+  imageUrl      String?
+  isAvailable   Boolean          @default(true)
+  categoryId    String
+  category      Category         @relation(fields: [categoryId], references: [id])
+  variants      ProductVariant[]
+  reviews       Review[]
+  orderItems    OrderItem[]
+  subscriptions Subscription[]
+  createdAt     DateTime         @default(now())
+}
+
+model ProductVariant {
+  id            String         @id @default(cuid())
+  productId     String
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  weightLabel   String
+  price         Float
+  mrp           Float?
+  stock         Int            @default(100)
+  orderItems    OrderItem[]
+  subscriptions Subscription[]
+}
+
+// status: "PLACED" | "CONFIRMED" | "OUT_FOR_DELIVERY" | "DELIVERED" | "CANCELLED"
+// paymentMethod: "COD" (more methods added later)
+model Order {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+  addressId    String
+  address      Address     @relation(fields: [addressId], references: [id])
+  items        OrderItem[]
+  subtotal     Float
+  deliveryFee  Float       @default(0)
+  total        Float
+  paymentMethod String     @default("COD")
+  status       String      @default("PLACED")
+  pincode      String
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model OrderItem {
+  id               String         @id @default(cuid())
+  orderId          String
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  variantId        String
+  variant          ProductVariant @relation(fields: [variantId], references: [id])
+  name             String
+  weightLabel      String
+  price            Float
+  quantity         Int
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@unique([productId, userId])
+}
+
+// frequencyDays: 7 (weekly), 14 (biweekly), 30 (monthly)
+model Subscription {
+  id               String         @id @default(cuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  variantId        String
+  variant          ProductVariant @relation(fields: [variantId], references: [id])
+  addressId        String
+  address          Address        @relation(fields: [addressId], references: [id])
+  frequencyDays    Int            @default(7)
+  quantity         Int            @default(1)
+  nextDeliveryDate DateTime
+  active           Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+}
+
+model ServiceablePincode {
+  id        String  @id @default(cuid())
+  pincode   String  @unique
+  area      String
+  isActive  Boolean @default(true)
+}
